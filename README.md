@@ -3,3 +3,4 @@
          1-7 samples are from case group
          8-14 samples are from control group
 # Rmd file is the R code, pdf file is the corresponding results
+# R version 3.6.0
