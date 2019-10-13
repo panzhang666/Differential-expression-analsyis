@@ -1,0 +1,54 @@
+---
+title: "pairwise_DEG_withoutpackage"
+author: "PanZhang"
+date: "10/12/2019"
+output: word_document
+---
+
+```{r}
+setwd("/Users/panzhang/Desktop/basic info/Chicago_senior_bioinformatician")
+data <- read.table("htseqcount_combine.txt",header = T, row.names = 1)
+dim(data)
+# CPM calculation
+TN <- apply(data,2,sum)
+cpm_data <- data*(1000000)/TN
+# Filter genes with no or very low expression
+keep <- rowSums(cpm_data>1) >= 7
+cpm_data<- cpm_data[keep,]
+dim(cpm_data)
+#Normalization
+normalized_data <- log(cpm_data+1)
+d <- dist(t(normalized_data), method = "euclidean", diag = FALSE, upper = FALSE, p = 2)
+x <- hclust(d)
+plot(x, labels = NULL, hang = 0.1, check = TRUE,
+     axes = TRUE, frame.plot = FALSE, ann = TRUE,
+     main = "Cluster Dendrogram",
+     sub = NULL, xlab = NULL, ylab = "Height")
+# Based on the cluster plot, the samples whithin each group have smaller distance, while the samples between two group have larger distance. So, pass the samle quality control and move on to differential expression analysis.
+n <- dim(normalized_data)[1]
+# Differential expression test for each gene
+# calculate both p-value and log2(Fold Change)
+stat_result <- vector()
+for (i in seq(n)){
+  result <- t.test(as.numeric(normalized_data[i,1:7]),as.numeric(normalized_data[i,8:14]), paired = TRUE)
+  ave_case <- mean(as.numeric(normalized_data[i,1:7]))
+  ave_control <- mean(as.numeric(normalized_data[i,8:14]))
+  logFC <- log(ave_case/ave_control,base = 2)
+  stat_result <- rbind(stat_result, c(result$p.value,logFC))
+}
+rownames(stat_result) <- rownames(normalized_data)
+colnames(stat_result) <- c("p.value", "logFC")
+stat_result <- as.data.frame(stat_result)
+# Calculate FDR.p.value
+FDR.p.value <- p.adjust(as.numeric(stat_result$p.value), method = "BH")
+# Summary stat result
+stat_result <- cbind(stat_result, FDR.p.value)
+# Sort stat_result by FDR.p.value
+stat_result <-stat_result[order(stat_result$FDR.p.value),]
+head(stat_result)
+# Visualazed the DEG results by volcano plot 
+plot(stat_result$logFC, -log10(stat_result$p.value), col = ifelse( stat_result$FDR.p.value < 0.05,'red','green'), xlab="log2(FC)", ylab="-log10(p.value)")
+
+```
+
+
